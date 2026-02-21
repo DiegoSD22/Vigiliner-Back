@@ -5,7 +5,6 @@ yarn-error.log*
 
 # Env
 .env
-.env.*
 
 # Prisma
 prisma/dev.db
