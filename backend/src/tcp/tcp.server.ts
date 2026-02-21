@@ -96,7 +96,7 @@ export function startTcpServer(
     let lng = -99.1332;
     let speed = 0;
     let heading = 0;
-    const deviceId = 'b718240b-9007-42b1-802c-e1612f5467a2'; // ID provisional
+    const unitID = 'a487272c-8161-4e37-bc04-3bcc30d1bf39'; // ID provisional
 
     setInterval(() => {
 
@@ -105,12 +105,14 @@ export function startTcpServer(
       speed = Math.random() * 80;
       heading = Math.random() * 360;
 
-      gateway.server.emit('receiveLocation', {
-        deviceId,
+      gateway.server.to(unitID).emit('receiveLocation', {
+        unitId: unitID,
         lat,
         lng,
         speed,
         heading,
+        status: speed > 5 ? 'MOVING' : 'STOPPED',
+        lastSeen: new Date(),
       });
 
       console.log('🧪 Simulación enviada:', lat, lng, speed, heading);

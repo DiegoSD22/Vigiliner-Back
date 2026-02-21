@@ -52,14 +52,14 @@ export class DevicesGateway
     console.log('Socket desconectado');
   }
 
-  @SubscribeMessage('joinDevice')
-  async handleJoinDevice(
-    @MessageBody() deviceId: string,
+  @SubscribeMessage('joinUnit')
+  async handleJoinUnit(
+    @MessageBody() unitId: string,
     @ConnectedSocket() client: Socket,
   ) {
-    client.join(deviceId);
+    console.log(`Socket ${client.id} se unió a la unidad ${unitId}`);
+    client.join(unitId);
 
-    return { joined: deviceId };
   }
 
   @SubscribeMessage('sendLocation')
@@ -84,7 +84,32 @@ export class DevicesGateway
       },
     });
 
+    const unit = await this.prisma.unit.findUnique({
+      where: { deviceId: data.deviceId },
+    });
+
+    if (!unit) {
+      console.log('❌ No hay unidad asignada a este GPS:', data.deviceId);
+      return;
+    }
+
+    let status = 'STOPPED';
+
+    if (data.speed && data.speed > 5) {
+      status = 'MOVING';
+    }
+
     // 2️⃣ Emitir en tiempo real
-    this.server.to(data.deviceId).emit('receiveLocation', data);
+    this.server.to(unit.id).emit('receiveLocation', {
+      unitId: unit.id,
+      lat: data.lat,
+      lng: data.lng,
+      speed: data.speed,
+      heading: data.heading,
+      status,
+      lastSeen: new Date(),
+    });
+
+
   }
 }
