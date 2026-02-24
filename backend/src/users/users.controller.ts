@@ -1,5 +1,6 @@
 // src/users/users.controller.ts
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
+import { PaginationDto } from './dto/pagination.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UsersService } from './users.service';
 import { UseGuards } from '@nestjs/common';
@@ -20,8 +21,8 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'USER')
   @Get()
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@Query() paginationDto: PaginationDto) {
+    return this.usersService.findAll(paginationDto);
   }
 
   @Get(':id')

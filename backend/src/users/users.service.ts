@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
+import { PaginationDto } from './dto/pagination.dto';
 
 @Injectable()
 export class UsersService {
@@ -14,8 +15,16 @@ export class UsersService {
     return userWithoutPassword;
   }
 
-  findAll() {
-    return this.prisma.user.findMany();
+  async findAll(paginationDto: PaginationDto) {
+    const { from = 0, limit = 10 } = paginationDto;
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        skip: from,
+        take: limit,
+      }),
+      this.prisma.user.count(),
+    ]);
+    return { users, total };
   }
 
   findById(id: string) {
