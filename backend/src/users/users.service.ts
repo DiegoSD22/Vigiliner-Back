@@ -50,4 +50,14 @@ export class UsersService {
     return userWithoutPassword;
   }
 
+  async remove(id: string) {
+    // Soft delete: actualiza deletedAt
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+    const { password, ...userWithoutPassword } = user;
+    return userWithoutPassword;
+  }
+
 }
