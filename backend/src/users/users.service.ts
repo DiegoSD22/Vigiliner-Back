@@ -11,9 +11,7 @@ export class UsersService {
 
   async create(data: CreateUserDto) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
-    const userCreated = await this.prisma.user.create({ data: { ...data, password: hashedPassword } });
-    const { password, ...userWithoutPassword } = userCreated;
-    return userWithoutPassword;
+    return this.prisma.user.create({ data: { ...data, password: hashedPassword } });
   }
 
   async findAll(paginationDto: PaginationDto) {
@@ -31,9 +29,7 @@ export class UsersService {
   async findById(id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException(`User with ID ${id} not found`);
-    
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return user;
   }
 
   async update(id: string, data: UpdateUserDto) {
@@ -42,21 +38,17 @@ export class UsersService {
     if (data.password) {
       updateData.password = await bcrypt.hash(data.password, 10);
     }
-    const userUpdated = await this.prisma.user.update({
+    return this.prisma.user.update({
       where: { id },
       data: updateData,
     });
-    const { password, ...userWithoutPassword } = userUpdated;
-    return userWithoutPassword;
   }
 
   async remove(id: string) {
     // Soft delete automático por middleware
-    const user = await this.prisma.user.delete({
+    return this.prisma.user.delete({
       where: { id },
     });
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
   }
 
 }
