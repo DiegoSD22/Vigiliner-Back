@@ -20,8 +20,8 @@ export class UsersService {
     const { from = 0, limit = 10 } = paginationDto;
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
-        skip: from,
-        take: limit,
+        skip: +from,
+        take: +limit,
       }),
       this.prisma.user.count(),
     ]);
