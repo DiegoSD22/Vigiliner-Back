@@ -51,10 +51,9 @@ export class UsersService {
   }
 
   async remove(id: string) {
-    // Soft delete: actualiza deletedAt
-    const user = await this.prisma.user.update({
+    // Soft delete automático por middleware
+    const user = await this.prisma.user.delete({
       where: { id },
-      data: { deletedAt: new Date() },
     });
     const { password, ...userWithoutPassword } = user;
     return userWithoutPassword;
