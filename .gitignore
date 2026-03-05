@@ -55,8 +55,8 @@ pids
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-/generated/prisma
+# Prisma generated files (auto-generated, regenerate with: npx prisma generate)
+/prisma/generated
 
-data/**
-
-/generated/prisma
+# Data directory
+/data/**
