@@ -11,3 +11,120 @@ generator client {
   moduleFormat = "cjs"
 }
 
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+/// Estado de la organización
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+
+  @@map("organization_status")
+}
+
+// ============================================================================
+// MODELOS
+// ============================================================================
+
+/// Organization - Empresa cliente en el sistema SaaS
+/// 
+/// Multi-tenant: Cada organización es un tenant independiente
+/// Seguridad: ID con UUID para no exponer secuenciales
+/// SaaS Ready: Status, slug, soft delete incluido
+model Organization {
+  /// Identificador único - UUID en lugar de secuencial
+  /// Ventaja: No expone información sensible en URLs/APIs
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Nombre de la organización
+  name String @db.VarChar(255)
+
+  /// Slug único para URLs limpias
+  /// Ejemplo: /org/transporte-andina
+  slug String @unique @db.VarChar(100)
+
+  /// Estado de la organización
+  /// ACTIVE: Funcionando normalmente
+  /// SUSPENDED: Acceso bloqueado por administrativos
+  /// ARCHIVED: Inactiva pero preservada
+  status OrganizationStatus @default(ACTIVE)
+
+  /// Auditoría: Fecha de creación (automático)
+  createdAt DateTime @default(now()) @db.Timestamp(3)
+
+  /// Auditoría: Última actualización (automático)
+  updatedAt DateTime @updatedAt @db.Timestamp(3)
+
+  /// Soft delete: null = activo, fecha = eliminado
+  deletedAt DateTime? @db.Timestamp(3)
+
+  // ========================================================================
+  // RELACIONES
+  // ========================================================================
+  /// Usuarios de esta organización
+  users User[]
+
+  // ========================================================================
+  // ÍNDICES para SaaS Multi-tenant
+  // ========================================================================
+  /// Búsqueda por slug (URLs)
+  @@index([slug])
+
+  /// Filtrar eliminadas + ordenar por fecha
+  @@index([deletedAt, createdAt])
+
+  /// Queries de administración (estado + no eliminadas)
+  @@index([status, deletedAt])
+
+  /// Nombre de tabla en BD
+  @@map("organizations")
+}
+
+/// User - Usuario del sistema (miembro de una organización)
+/// 
+/// Multi-tenant: Cada usuario pertenece a UNA organización
+/// Auditoría: timestamps automáticos y soft delete
+model User {
+  /// Identificador único - UUID
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Email único del usuario
+  email String @unique @db.VarChar(255)
+
+  /// Nombre del usuario
+  name String @db.VarChar(255)
+
+  /// Password hasheado (bcrypt o similar)
+  password String @db.VarChar(255)
+
+  /// Organización a la que pertenece (multi-tenant)
+  organizationId String @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Auditoría: Fecha de creación (automático)
+  createdAt DateTime @default(now()) @db.Timestamp(3)
+
+  /// Auditoría: Última actualización (automático)
+  updatedAt DateTime @updatedAt @db.Timestamp(3)
+
+  /// Soft delete: null = activo, fecha = eliminado
+  deletedAt DateTime? @db.Timestamp(3)
+
+  // ========================================================================
+  // ÍNDICES para Multi-tenant
+  // ========================================================================
+  /// Búsqueda de usuarios por organización
+  @@index([organizationId])
+
+  /// Email única por organización (multi-tenant)
+  @@index([organizationId, email])
+
+  /// Filtrar eliminadas
+  @@index([organizationId, deletedAt])
+
+  /// Nombre de tabla en BD
+  @@map("users")
+}
+
