@@ -93,6 +93,9 @@ model User {
   /// Email único del usuario
   email String @unique @db.VarChar(255)
 
+  /// Username único para login alternativo
+  username String @unique @db.VarChar(50)
+
   /// Nombre del usuario
   name String @db.VarChar(255)
 

@@ -13,7 +13,7 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, password, name, organizationName } = registerDto;
+    const { email, password, name, organizationName, username } = registerDto;
 
     // Verificar si el usuario ya existe
     const existingUser = await this.prismaService.user.findUnique({
@@ -23,6 +23,10 @@ export class AuthService {
     if (existingUser) {
       throw new BadRequestException('El email ya está registrado');
     }
+
+    const resolvedUsername = await this.resolveUniqueUsername(
+      username || email.split('@')[0],
+    );
 
     // Hash de la contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -40,6 +44,7 @@ export class AuthService {
     const user = await this.prismaService.user.create({
       data: {
         email,
+        username: resolvedUsername,
         password: hashedPassword,
         name,
         organizationId: organization.id,
@@ -47,6 +52,7 @@ export class AuthService {
       select: {
         id: true,
         email: true,
+        username: true,
         name: true,
         organizationId: true,
         createdAt: true,
@@ -70,11 +76,14 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
+    const { identifier, password } = loginDto;
 
     // Buscar usuario
-    const user = await this.prismaService.user.findUnique({
-      where: { email },
+    const user = await this.prismaService.user.findFirst({
+      where: {
+        OR: [{ email: identifier }, { username: identifier }],
+        deletedAt: null,
+      },
       include: {
         organization: {
           select: {
@@ -149,6 +158,37 @@ export class AuthService {
 
   private async generateAccessToken(payload: JwtPayload): Promise<string> {
     return this.jwtService.signAsync(payload);
+  }
+
+  private normalizeUsername(input: string): string {
+    const normalized = input
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9._-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    return normalized.slice(0, 50) || `user-${Date.now()}`;
+  }
+
+  private async resolveUniqueUsername(base: string): Promise<string> {
+    const normalizedBase = this.normalizeUsername(base);
+    let candidate = normalizedBase;
+    let suffix = 1;
+
+    while (true) {
+      const exists = await this.prismaService.user.findUnique({
+        where: { username: candidate },
+        select: { id: true },
+      });
+
+      if (!exists) {
+        return candidate;
+      }
+
+      candidate = `${normalizedBase}-${suffix}`.slice(0, 50);
+      suffix += 1;
+    }
   }
 
   /**

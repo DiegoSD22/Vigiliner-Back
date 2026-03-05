@@ -26,6 +26,7 @@ export class AuthController {
     user: {
       id: '550e8400-e29b-41d4-a716-446655440000',
       email: 'user@example.com',
+      username: 'juan.perez',
       name: 'Juan Pérez',
       organizationId: '550e8400-e29b-41d4-a716-446655440001',
       createdAt: '2026-03-05T10:30:00Z',
@@ -48,6 +49,7 @@ export class AuthController {
     user: {
       id: '550e8400-e29b-41d4-a716-446655440000',
       email: 'user@example.com',
+      username: 'super-admin',
       name: 'Juan Pérez',
       organizationId: '550e8400-e29b-41d4-a716-446655440001',
       createdAt: '2026-03-05T10:30:00Z',
@@ -75,6 +77,7 @@ export class AuthController {
   @ApiOkResponse('Perfil obtenido exitosamente', {
     id: '550e8400-e29b-41d4-a716-446655440000',
     email: 'user@example.com',
+    username: 'super-admin',
     name: 'Juan Pérez',
     organizationId: '550e8400-e29b-41d4-a716-446655440001',
     createdAt: '2026-03-05T10:30:00Z',
