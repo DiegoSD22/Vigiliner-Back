@@ -5,9 +5,17 @@ import { AppModule } from './app.module';
 import { setupSwagger } from './swagger';
 import { PrismaService } from './prisma';
 import { AllConfigType } from './config';
+import { AllExceptionsFilter } from './common/filters';
+import { ResponseInterceptor } from './common/interceptors';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Filtro global de excepciones - DEBE estar primero
+  app.useGlobalFilters(new AllExceptionsFilter());
+
+  // Interceptor global de respuestas
+  app.useGlobalInterceptors(new ResponseInterceptor());
 
   // Global Validation Pipe - Validar todos los DTOs
   app.useGlobalPipes(
@@ -19,14 +27,11 @@ async function bootstrap() {
         enableImplicitConversion: true,
       },
       exceptionFactory: (errors) => {
-        const formattedErrors = errors.map((error) => ({
-          field: error.property,
-          message: Object.values(error.constraints || {}).join(', '),
-        }));
         return new BadRequestException({
-          statusCode: 400,
-          message: 'Validation failed',
-          errors: formattedErrors,
+          message: 'Validación fallida',
+          errors: Object.fromEntries(
+            errors.map((e) => [e.property, Object.values(e.constraints || {})])
+          ),
         });
       },
     })

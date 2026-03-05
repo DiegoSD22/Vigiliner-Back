@@ -1,5 +1,10 @@
 import { Controller, Post, Body } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiPublicErrors,
+} from '@/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto, LoginDto } from './dto';
 
@@ -11,28 +16,17 @@ export class AuthController {
   @Post('register')
   @ApiOperation({
     summary: 'Registrar nuevo usuario y organización',
-    description: 'Crea un nuevo usuario y su organización asociada',
+    description:
+      'Crea un nuevo usuario con su organización asociada. El email debe ser único.',
   })
-  @ApiResponse({
-    status: 201,
-    description: 'Usuario registrado exitosamente',
-    schema: {
-      example: {
-        message: 'Usuario registrado exitosamente',
-        user: {
-          id: 'uuid-here',
-          email: 'user@example.com',
-          name: 'Juan Pérez',
-          organizationId: 'org-uuid',
-          createdAt: '2024-01-15T10:30:00Z',
-        },
-      },
-    },
+  @ApiCreatedResponse('Usuario registrado exitosamente', {
+    id: '550e8400-e29b-41d4-a716-446655440000',
+    email: 'user@example.com',
+    name: 'Juan Pérez',
+    organizationId: '550e8400-e29b-41d4-a716-446655440001',
+    createdAt: '2026-03-05T10:30:00Z',
   })
-  @ApiResponse({
-    status: 400,
-    description: 'El email ya está registrado o datos inválidos',
-  })
+  @ApiPublicErrors()
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
@@ -40,41 +34,39 @@ export class AuthController {
   @Post('login')
   @ApiOperation({
     summary: 'Iniciar sesión',
-    description: 'Valida credenciales y retorna datos del usuario',
+    description:
+      'Valida las credenciales del usuario y retorna sus datos de perfil.',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Login exitoso',
-    schema: {
-      example: {
-        message: 'Login exitoso',
-        user: {
-          id: 'uuid-here',
-          email: 'user@example.com',
-          name: 'Juan Pérez',
-          organizationId: 'org-uuid',
-          createdAt: '2024-01-15T10:30:00Z',
-          organization: {
-            id: 'org-uuid',
-            name: 'Mi Empresa',
-            slug: 'mi-empresa',
-            status: 'ACTIVE',
-          },
-        },
-      },
+  @ApiOkResponse('Login exitoso', {
+    id: '550e8400-e29b-41d4-a716-446655440000',
+    email: 'user@example.com',
+    name: 'Juan Pérez',
+    organizationId: '550e8400-e29b-41d4-a716-446655440001',
+    createdAt: '2026-03-05T10:30:00Z',
+    organization: {
+      id: '550e8400-e29b-41d4-a716-446655440001',
+      name: 'Mi Empresa',
+      slug: 'mi-empresa',
+      status: 'ACTIVE',
     },
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Credenciales inválidas',
-  })
+  @ApiPublicErrors()
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
 
   // TODO: Implementar estos endpoints después
   // @Post('refresh-token')
+  // @ApiProtected()
+  // async refreshToken() { }
+  //
   // @Post('logout')
+  // @ApiProtected()
+  // async logout() { }
+  //
   // @Post('forgot-password')
+  // async forgotPassword() { }
+  //
   // @Post('reset-password')
+  // async resetPassword() { }
 }

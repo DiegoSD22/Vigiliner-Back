@@ -50,7 +50,7 @@ export class AuthService {
 
     return {
       message: 'Usuario registrado exitosamente',
-      user,
+      data: user,
     };
   }
 
@@ -89,7 +89,7 @@ export class AuthService {
 
     return {
       message: 'Login exitoso',
-      user: userWithoutPassword,
+      data: userWithoutPassword,
       // token: generarJWT(user) será implementado después
     };
   }
