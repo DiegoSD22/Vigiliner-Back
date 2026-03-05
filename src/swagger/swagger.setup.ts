@@ -50,7 +50,5 @@ export function setupSwagger(
       },
     },
   });
-
-  console.log(`📚 Swagger documentation available at: http://localhost:${process.env.APP_PORT || 3000}/${path}`);
 }
 

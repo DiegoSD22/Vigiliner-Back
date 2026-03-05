@@ -8,6 +8,10 @@ import { AllConfigType } from './config';
 import { AllExceptionsFilter } from './common/filters';
 import { ResponseInterceptor } from './common/interceptors';
 
+function normalizePathPrefix(prefix: string): string {
+  return prefix.replace(/^\/+|\/+$/g, '');
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -40,9 +44,16 @@ async function bootstrap() {
   // Obtener ConfigService
   const configService = app.get(ConfigService<AllConfigType>);
   const port = configService.get('app.port', { infer: true }) || 3000;
+  const configuredPrefix =
+    configService.get('app.apiPrefix', { infer: true }) || 'api/v1';
+  const apiPrefix = normalizePathPrefix(configuredPrefix);
+
+  // Prefijo global para estandarizar rutas de la API
+  app.setGlobalPrefix(apiPrefix);
 
   // Configurar Swagger/OpenAPI
-  setupSwagger(app, 'api/docs');
+  const docsPath = `${apiPrefix}/docs`;
+  setupSwagger(app, docsPath);
 
   // Activar shutdown hooks para Prisma
   const prismaService = app.get(PrismaService);
@@ -50,6 +61,7 @@ async function bootstrap() {
 
   await app.listen(port);
   console.log(`🚀 Application is running on: http://localhost:${port}`);
-  console.log(`📚 Swagger docs available at: http://localhost:${port}/api/docs`);
+  console.log(`🔗 API Prefix: /${apiPrefix}`);
+  console.log(`📚 Swagger docs available at: http://localhost:${port}/${docsPath}`);
 }
 bootstrap();
