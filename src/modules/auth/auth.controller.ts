@@ -7,7 +7,7 @@ import {
   ApiPublicErrors,
 } from '@/swagger';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto } from './dto';
+import { RegisterDto, LoginDto, LoginResponseDto } from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 
@@ -43,25 +43,44 @@ export class AuthController {
   @ApiOperation({
     summary: 'Iniciar sesión',
     description:
-      'Valida las credenciales del usuario y retorna sus datos de perfil.',
+      'Valida las credenciales del usuario (email o username) y retorna sus datos de perfil, roles y permisos. El frontend es responsable de decidir a qué dashboard redirigir basado en los roles.',
   })
   @ApiOkResponse('Login exitoso', {
     user: {
       id: '550e8400-e29b-41d4-a716-446655440000',
-      email: 'user@example.com',
+      email: 'super-admin@seed.vigiliner.local',
       username: 'super-admin',
-      name: 'Juan Pérez',
+      name: 'Super Admin',
       organizationId: '550e8400-e29b-41d4-a716-446655440001',
       createdAt: '2026-03-05T10:30:00Z',
       organization: {
         id: '550e8400-e29b-41d4-a716-446655440001',
-        name: 'Mi Empresa',
-        slug: 'mi-empresa',
+        name: 'Vigiliner Org',
+        slug: 'vigiliner-org',
         status: 'ACTIVE',
       },
     },
-    accessToken: 'jwt-token',
+    accessToken:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJlbWFpbCI6InN1cGVyLWFkbWluQHNlZWQudmlnaWxpbmVyLmxvY2FsIiwib3JnYW5pemF0aW9uSWQiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDEiLCJyb2xlcyI6WyJzdXBlci1hZG1pbiJdLCJwZXJtaXNzaW9ucyI6WyJvcmdhbml6YXRpb25zOnJlYWQiLCJ1c2Vyczpyd2QiLCJyb2xlczphZG1pbiJdLCJpYXQiOjE3NDExNzY0MDAsImV4cCI6MTc0MTI2MjgwMH0.abcd1234',
     tokenType: 'Bearer',
+    roles: ['super-admin'],
+    permissions: [
+      'organizations:read',
+      'organizations:write',
+      'organizations:delete',
+      'organizations:admin',
+      'users:read',
+      'users:write',
+      'users:delete',
+      'users:admin',
+      'roles:read',
+      'roles:write',
+      'roles:delete',
+      'roles:assign',
+      'permissions:read',
+      'permissions:write',
+    ],
+    primaryRole: 'super-admin',
   })
   @ApiPublicErrors()
   async login(@Body() loginDto: LoginDto) {

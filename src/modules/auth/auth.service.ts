@@ -78,7 +78,7 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const { identifier, password } = loginDto;
 
-    // Buscar usuario
+    // Buscar usuario con sus roles
     const user = await this.prismaService.user.findFirst({
       where: {
         OR: [{ email: identifier }, { username: identifier }],
@@ -91,6 +91,19 @@ export class AuthService {
             name: true,
             slug: true,
             status: true,
+          },
+        },
+        roles: {
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -106,7 +119,17 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const { password: _, ...userWithoutPassword } = user;
+    const { password: _, roles, ...userWithoutPassword } = user;
+
+    // Extraer roles y permisos
+    const userRoles = roles.map((ur) => ur.role.slug);
+    const permissionsSet = new Set<string>();
+    for (const userRole of roles) {
+      for (const rolePermission of userRole.role.permissions) {
+        permissionsSet.add(rolePermission.permission.slug);
+      }
+    }
+    const userPermissions = Array.from(permissionsSet);
 
     const accessToken = await this.generateAccessToken(
       userWithoutPassword.id,
@@ -114,12 +137,17 @@ export class AuthService {
       userWithoutPassword.organizationId,
     );
 
+    const primaryRole = userRoles[0] || null;
+
     return {
       message: 'Login exitoso',
       data: {
         user: userWithoutPassword,
         accessToken,
         tokenType: 'Bearer',
+        roles: userRoles,
+        permissions: userPermissions,
+        primaryRole,
       },
     };
   }
