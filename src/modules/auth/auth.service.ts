@@ -59,11 +59,11 @@ export class AuthService {
       },
     });
 
-    const accessToken = await this.generateAccessToken({
-      sub: user.id,
-      email: user.email,
-      organizationId: user.organizationId,
-    });
+    const accessToken = await this.generateAccessToken(
+      user.id,
+      user.email,
+      user.organizationId,
+    );
 
     return {
       message: 'Usuario registrado exitosamente',
@@ -106,16 +106,13 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // TODO: Generar JWT token aquí cuando se implemente estrategia JWT
-    // Por ahora, retornar datos del usuario
-
     const { password: _, ...userWithoutPassword } = user;
 
-    const accessToken = await this.generateAccessToken({
-      sub: userWithoutPassword.id,
-      email: userWithoutPassword.email,
-      organizationId: userWithoutPassword.organizationId,
-    });
+    const accessToken = await this.generateAccessToken(
+      userWithoutPassword.id,
+      userWithoutPassword.email,
+      userWithoutPassword.organizationId,
+    );
 
     return {
       message: 'Login exitoso',
@@ -156,7 +153,53 @@ export class AuthService {
     };
   }
 
-  private async generateAccessToken(payload: JwtPayload): Promise<string> {
+  /**
+   * Generar token de acceso JWT con roles y permisos del usuario
+   */
+  private async generateAccessToken(
+    userId: string,
+    email: string,
+    organizationId: string,
+  ): Promise<string> {
+    // Cargar roles y permisos del usuario
+    const userRoles = await this.prismaService.userRole.findMany({
+      where: {
+        userId,
+        organizationId,
+      },
+      include: {
+        role: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Extraer slugs de roles
+    const roles = userRoles.map((ur) => ur.role.slug);
+
+    // Extraer permisos únicos de todos los roles
+    const permissionsSet = new Set<string>();
+    for (const userRole of userRoles) {
+      for (const rolePermission of userRole.role.permissions) {
+        permissionsSet.add(rolePermission.permission.slug);
+      }
+    }
+    const permissions = Array.from(permissionsSet);
+
+    const payload: JwtPayload = {
+      sub: userId,
+      email,
+      organizationId,
+      roles,
+      permissions,
+    };
+
     return this.jwtService.signAsync(payload);
   }
 

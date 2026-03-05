@@ -6,6 +6,11 @@ import {
   clearOrganizationsAndUsers,
   seedOrganizationsAndUsers,
 } from './seeders/organization-user.seeder';
+import {
+  clearPermissions,
+  seedPermissions,
+} from './seeders/permissions.seeder';
+import { clearRoles, seedRoles } from './seeders/roles.seeder';
 import { generateSeedOrganizations } from './seed-data';
 
 function assertSeedAllowed(): void {
@@ -38,7 +43,14 @@ async function main(): Promise<void> {
     if (shouldReset) {
       console.log('[seed] Limpiando datos existentes...');
       await clearOrganizationsAndUsers(prisma);
+      await clearRoles(prisma);
+      await clearPermissions(prisma);
     }
+
+    // Sembrar permisos y roles del sistema (deben ir primero)
+    console.log('[seed] Sembrando permisos y roles del sistema...');
+    await seedPermissions(prisma);
+    await seedRoles(prisma);
 
     console.log('[seed] Insertando datos de prueba generados con faker...');
     console.log(

@@ -6,8 +6,8 @@ datasource db {
 }
 
 generator client {
-  provider   = "prisma-client"
-  output     = "./generated"
+  provider     = "prisma-client"
+  output       = "./generated"
   moduleFormat = "cjs"
 }
 
@@ -22,6 +22,16 @@ enum OrganizationStatus {
   ARCHIVED
 
   @@map("organization_status")
+}
+
+/// Alcance de un rol
+/// GLOBAL: Roles de sistema (ej: SUPER_ADMIN) - cruzan organizaciones
+/// ORGANIZATION: Roles específicos de una organización
+enum RoleScope {
+  GLOBAL
+  ORGANIZATION
+
+  @@map("role_scope")
 }
 
 // ============================================================================
@@ -66,18 +76,21 @@ model Organization {
   /// Usuarios de esta organización
   users User[]
 
+  /// Roles específicos de esta organización
+  roles Role[]
+
+  /// Asignación de roles a usuarios en esta organización
+  userRoles UserRole[]
+
   // ========================================================================
   // ÍNDICES para SaaS Multi-tenant
   // ========================================================================
   /// Búsqueda por slug (URLs)
   @@index([slug])
-
   /// Filtrar eliminadas + ordenar por fecha
   @@index([deletedAt, createdAt])
-
   /// Queries de administración (estado + no eliminadas)
   @@index([status, deletedAt])
-
   /// Nombre de tabla en BD
   @@map("organizations")
 }
@@ -103,7 +116,7 @@ model User {
   password String @db.VarChar(255)
 
   /// Organización a la que pertenece (multi-tenant)
-  organizationId String @db.Uuid
+  organizationId String       @db.Uuid
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   /// Auditoría: Fecha de creación (automático)
@@ -116,18 +129,178 @@ model User {
   deletedAt DateTime? @db.Timestamp(3)
 
   // ========================================================================
+  // RELACIONES
+  // ========================================================================
+  /// Roles asignados a este usuario (en diferentes organizaciones)
+  roles UserRole[]
+
+  // ========================================================================
   // ÍNDICES para Multi-tenant
   // ========================================================================
   /// Búsqueda de usuarios por organización
   @@index([organizationId])
-
   /// Email única por organización (multi-tenant)
   @@index([organizationId, email])
-
   /// Filtrar eliminadas
   @@index([organizationId, deletedAt])
-
   /// Nombre de tabla en BD
   @@map("users")
 }
 
+// ============================================================================
+// RBAC - CONTROL DE ACCESO BASADO EN ROLES
+// ============================================================================
+
+/// Role - Rol de usuario con permisos asociados
+/// 
+/// Scope: GLOBAL (sistema) o ORGANIZATION (específico de org)
+/// Flexibilidad: Roles de sistema + roles personalizados por org
+/// Permisos: Relación muchos-a-muchos con Permission
+model Role {
+  /// Identificador único - UUID
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Nombre del rol (ej: "Administrador", "Gerente")
+  name String @db.VarChar(100)
+
+  /// Slug único para identificación en código (ej: "admin", "manager")
+  slug String @db.VarChar(100)
+
+  /// Descripción del rol
+  description String? @db.Text
+
+  /// Alcance del rol: GLOBAL o ORGANIZATION
+  scope RoleScope @default(ORGANIZATION)
+
+  /// Rol de sistema: true = no editable, viene predefinido
+  isSystem Boolean @default(false)
+
+  /// Organización dueña del rol (null para roles globales)
+  organizationId String?       @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Auditoría: Fecha de creación
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  /// Auditoría: Última actualización
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  // ========================================================================
+  // RELACIONES
+  // ========================================================================
+  /// Permisos asignados a este rol
+  permissions RolePermission[]
+
+  /// Usuarios que tienen este rol
+  users UserRole[]
+
+  // ========================================================================
+  // ÍNDICES Y RESTRICCIONES
+  // ========================================================================
+  /// Slug único por organización (permite mismo slug en diferentes orgs)
+  @@unique([slug, organizationId])
+  @@index([organizationId])
+  @@index([scope])
+  @@index([isSystem])
+  @@map("roles")
+}
+
+/// Permission - Permiso granular para acciones específicas
+/// 
+/// Formato: {resource}:{action} (ej: users:read, documents:delete)
+/// Granularidad: Control fino sobre cada acción en cada recurso
+/// Reutilizable: Mismo permiso usado en múltiples roles
+model Permission {
+  /// Identificador único - UUID
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Nombre descriptivo del permiso
+  name String @db.VarChar(100)
+
+  /// Slug único formato: resource:action (ej: "users:read")
+  slug String @unique @db.VarChar(100)
+
+  /// Recurso al que aplica (ej: "users", "documents")
+  resource String @db.VarChar(50)
+
+  /// Acción permitida (ej: "read", "write", "delete", "admin")
+  action String @db.VarChar(50)
+
+  /// Descripción del permiso
+  description String? @db.Text
+
+  /// Auditoría: Fecha de creación
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  /// Auditoría: Última actualización
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  // ========================================================================
+  // RELACIONES
+  // ========================================================================
+  /// Roles que tienen este permiso
+  roles RolePermission[]
+
+  // ========================================================================
+  // ÍNDICES Y RESTRICCIONES
+  // ========================================================================
+  /// Combinación única de recurso y acción
+  @@unique([resource, action])
+  @@index([resource])
+  @@map("permissions")
+}
+
+/// RolePermission - Relación muchos-a-muchos entre Roles y Permisos
+/// 
+/// Patrón: Join table para asignación flexible de permisos a roles
+model RolePermission {
+  /// ID del rol
+  roleId String @db.Uuid
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  /// ID del permiso
+  permissionId String     @db.Uuid
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  /// Auditoría: Fecha de asignación
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  // ========================================================================
+  // ÍNDICES Y RESTRICCIONES
+  // ========================================================================
+  /// Clave primaria compuesta
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+/// UserRole - Asignación de roles a usuarios (con contexto de organización)
+/// 
+/// Multi-tenant: Un usuario puede tener diferentes roles en diferentes organizaciones
+/// Contexto: Siempre vinculado a una organización específica
+model UserRole {
+  /// ID del usuario
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// ID del rol
+  roleId String @db.Uuid
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  /// Contexto: Organización en la que el usuario tiene este rol
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Auditoría: Fecha de asignación
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  // ========================================================================
+  // ÍNDICES Y RESTRICCIONES
+  // ========================================================================
+  /// Clave primaria compuesta: usuario + rol + organización
+  @@id([userId, roleId, organizationId])
+  @@index([userId])
+  @@index([roleId])
+  @@index([organizationId])
+  @@map("user_roles")
+}

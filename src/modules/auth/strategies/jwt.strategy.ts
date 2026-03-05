@@ -52,6 +52,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       ...safeUser,
       organization: safeOrganization,
+      roles: payload.roles,
+      permissions: payload.permissions,
     };
   }
 }
