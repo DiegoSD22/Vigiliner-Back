@@ -1,0 +1,73 @@
+### Variables
+@baseUrl = http://localhost:3000
+@token = your_jwt_token_here
+
+###############################################
+# AUTH ENDPOINTS - Vigiliner Backend
+###############################################
+
+### 1. SignIn - Login exitoso
+POST {{baseUrl}}/auth/signin
+Content-Type: application/json
+
+{
+  "email": "admin@vigiliner.com",
+  "password": "password123"
+}
+
+### 2. SignIn - Usuario normal
+POST {{baseUrl}}/auth/signin
+Content-Type: application/json
+
+{
+  "email": "user@vigiliner.com",
+  "password": "password123"
+}
+
+### 3. Get Profile - Con autenticación
+GET {{baseUrl}}/auth/profile
+Authorization: Bearer {{token}}
+
+### 4. SignIn - Email inválido (debe fallar validación)
+POST {{baseUrl}}/auth/signin
+Content-Type: application/json
+
+{
+  "email": "invalid-email",
+  "password": "password123"
+}
+
+### 5. SignIn - Password corta (debe fallar validación)
+POST {{baseUrl}}/auth/signin
+Content-Type: application/json
+
+{
+  "email": "admin@vigiliner.com",
+  "password": "123"
+}
+
+### 6. SignIn - Credenciales incorrectas
+POST {{baseUrl}}/auth/signin
+Content-Type: application/json
+
+{
+  "email": "admin@vigiliner.com",
+  "password": "wrong_password"
+}
+
+### 7. Get Profile - Sin token (debe fallar 401)
+GET {{baseUrl}}/auth/profile
+
+###############################################
+# INSTRUCCIONES DE USO
+###############################################
+
+# 1. Arranca el servidor: npm run start:dev
+# 2. Ejecuta el endpoint de SignIn (#1 o #2)
+# 3. Copia el "access_token" de la respuesta
+# 4. Reemplaza "your_jwt_token_here" en la variable @token
+# 5. Ejecuta el endpoint de Profile (#3)
+
+# Credenciales por defecto (después de ejecutar npm run prisma:seed):
+# - Admin: admin@vigiliner.com / password123
+# - User: user@vigiliner.com / password123

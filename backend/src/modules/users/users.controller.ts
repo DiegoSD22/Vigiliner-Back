@@ -8,9 +8,7 @@ import { PaginationDto } from './dto/pagination.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UsersService } from './users.service';
 import { UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from 'src/auth/roles.guard';
-import { Roles } from 'src/auth/roles.decorator';
+import { JwtAuthGuard } from '../auth';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('users')

@@ -1,6 +1,6 @@
 import * as net from 'net';
 import { PrismaService } from 'prisma/prisma.service';
-import { DevicesGateway } from '../devices/devices.gateway';
+import { DevicesGateway } from '../modules/devices/devices.gateway';
 import * as queclink from 'queclink-parser';
 
 export function startTcpServer(
