@@ -1,98 +1,310 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🚀 Vigiliner-Back
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+**NestJS + Prisma + PostgreSQL** - Backend escalable con arquitectura limpia
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+> Setup profesional siguiendo principios YAGNI (You Aren't Gonna Need It) - solo lo necesario, nada más.
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## ⚡ Quick Start (5 minutos)
 
 ```bash
-$ npm install
+# 1. Definir modelos en prisma/schema.prisma
+model User {
+  id    Int     @id @default(autoincrement())
+  email String  @unique
+  name  String?
+}
+
+# 2. Crear migración
+npx prisma migrate dev --name init
+
+# 3. Crear service+controller (ver abajo)
+
+# 4. Ejecutar
+npm run start:dev
 ```
 
-## Compile and run the project
+---
+
+## 🏗️ Arquitectura YAGNI
+
+**Principio:** Abstrae solo cuando realmente lo necesites
+
+- ✅ DTOs → Validación de entrada
+- ✅ Service → Lógica de negocio + CRUD
+- ✅ Controller → HTTP + Respuestas
+- ✅ Module → Encapsulación
+- ❌ **NO** BaseService genérico hasta tener duplicación clara
+
+### Estructura
+
+```
+src/
+├── prisma/
+│   ├── prisma.service.ts       # Singleton PrismaClient
+│   ├── prisma.module.ts        # Exports PrismaService
+│   └── index.ts
+├── modules/
+│   └── users/
+│       ├── dto/
+│       │   ├── create-user.dto.ts
+│       │   └── update-user.dto.ts
+│       ├── user.controller.ts
+│       ├── user.service.ts
+│       └── users.module.ts
+├── config/
+├── app.module.ts               # Importa PrismaModule + UsersModule
+└── main.ts
+```
+
+---
+
+## 📝 Ejemplo: Módulo de Usuarios
+
+### 1. DTOs
+
+```typescript
+// src/modules/users/dto/create-user.dto.ts
+import { IsEmail, MinLength } from 'class-validator';
+
+export class CreateUserDto {
+  @IsEmail()
+  email: string;
+
+  @MinLength(3)
+  name?: string;
+}
+
+export class UpdateUserDto {
+  name?: string;
+  email?: string;
+}
+```
+
+### 2. Service
+
+```typescript
+// src/modules/users/user.service.ts
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { PrismaService } from '../../prisma';
+import { User, Prisma } from '../../../prisma/generated';
+
+@Injectable()
+export class UserService {
+  constructor(private prisma: PrismaService) {}
+
+  async create(data: CreateUserDto): Promise<User> {
+    try {
+      return await this.prisma.user.create({ data });
+    } catch (error) {
+      if (error.code === 'P2002') {
+        throw new BadRequestException('Email ya existe');
+      }
+      throw error;
+    }
+  }
+
+  async findAll(skip = 0, take = 10) {
+    const [data, total] = await Promise.all([
+      this.prisma.user.findMany({ skip, take, orderBy: { createdAt: 'desc' } }),
+      this.prisma.user.count(),
+    ]);
+    return { data, total };
+  }
+
+  async findOne(id: number): Promise<User> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    return user;
+  }
+
+  async update(id: number, data: UpdateUserDto): Promise<User> {
+    try {
+      return await this.prisma.user.update({ where: { id }, data });
+    } catch (error) {
+      if (error.code === 'P2025') {
+        throw new NotFoundException('Usuario no encontrado');
+      }
+      if (error.code === 'P2002') {
+        throw new BadRequestException('Email ya existe');
+      }
+      throw error;
+    }
+  }
+
+  async delete(id: number): Promise<User> {
+    try {
+      return await this.prisma.user.delete({ where: { id } });
+    } catch (error) {
+      if (error.code === 'P2025') {
+        throw new NotFoundException('Usuario no encontrado');
+      }
+      throw error;
+    }
+  }
+}
+```
+
+### 3. Controller
+
+```typescript
+// src/modules/users/user.controller.ts
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, ValidationPipe } from '@nestjs/common';
+import { UserService } from './user.service';
+import { CreateUserDto, UpdateUserDto } from './dto';
+
+@Controller('users')
+export class UserController {
+  constructor(private userService: UserService) {}
+
+  @Get()
+  async getAll(
+    @Query('skip') skip: string = '0',
+    @Query('take') take: string = '10',
+  ) {
+    return this.userService.findAll(+skip, +take);
+  }
+
+  @Get(':id')
+  async getById(@Param('id') id: string) {
+    return this.userService.findOne(+id);
+  }
+
+  @Post()
+  async create(@Body(ValidationPipe) dto: CreateUserDto) {
+    return this.userService.create(dto);
+  }
+
+  @Put(':id')
+  async update(@Param('id') id: string, @Body(ValidationPipe) dto: UpdateUserDto) {
+    return this.userService.update(+id, dto);
+  }
+
+  @Delete(':id')
+  async delete(@Param('id') id: string) {
+    return this.userService.delete(+id);
+  }
+}
+```
+
+### 4. Module
+
+```typescript
+// src/modules/users/users.module.ts
+import { Module } from '@nestjs/common';
+import { UserService } from './user.service';
+import { UserController } from './user.controller';
+
+@Module({
+  providers: [UserService],
+  controllers: [UserController],
+  exports: [UserService],
+})
+export class UsersModule {}
+```
+
+### 5. AppModule
+
+```typescript
+// src/app.module.ts
+import { PrismaModule } from './prisma';
+import { UsersModule } from './modules/users/users.module';
+
+@Module({
+  imports: [ConfigModule.forRoot(...), PrismaModule, UsersModule],
+})
+export class AppModule {}
+```
+
+---
+
+## 🔧 Comandos
 
 ```bash
-# development
-$ npm run start
+# Setup
+npm install
 
-# watch mode
-$ npm run start:dev
+# Desarrollo
+npm run start:dev
 
-# production mode
-$ npm run start:prod
+# Tests
+npm run test
+
+# Prisma
+npx prisma migrate dev --name xxx    # Nueva migración
+npx prisma generate                  # Regenerar types
+npx prisma studio                    # Ver datos en GUI
+npx prisma migrate reset              # Resetear BD (⚠️ SOLO DEV)
 ```
 
-## Run tests
+---
+
+## 🛡️ Errores Prisma Comunes
+
+| Código | Problema | Solución |
+|--------|----------|----------|
+| P2002 | Violación de unicidad | Validar entrada, email duplicado |
+| P2025 | Registro no encontrado | Verificar ID existe |
+| P2003 | Foreign key falla | Verificar relación existe |
+| P2014 | No puedes eliminar | Agregar `onDelete: Cascade` al modelo |
+
+---
+
+## 🧪 Testing
+
+```typescript
+const mockPrismaService = {
+  user: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    findMany: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    count: jest.fn(),
+  },
+};
+
+const module = await Test.createTestingModule({
+  providers: [
+    UserService,
+    { provide: PrismaService, useValue: mockPrismaService },
+  ],
+}).compile();
+```
+
+---
+
+## 📖 Live Development
 
 ```bash
-# unit tests
-$ npm run test
+# Terminal 1 - BD (docker)
+docker-compose up
 
-# e2e tests
-$ npm run test:e2e
+# Terminal 2 - NestJS
+npm run start:dev
 
-# test coverage
-$ npm run test:cov
+# Terminal 3 - Prisma Studio (ver datos)
+npx prisma studio
 ```
 
-## Deployment
+---
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## 📚 Referencias
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+- [NestJS Docs](https://docs.nestjs.com)
+- [Prisma Docs](https://www.prisma.io/docs)
+- [Prisma Errors](https://www.prisma.io/docs/reference/api-reference/error-reference)
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+---
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## ✅ Setup Completado
 
-## Resources
+- ✅ @prisma/client instalado
+- ✅ @prisma/adapter-pg instalado (PostgreSQL directo)
+- ✅ pg driver instalado
+- ✅ PrismaService (singleton con auto-connect y pool management)
+- ✅ PrismaModule exportado
+- ✅ postgresql datasource en prisma.config.ts
+- ✅ Tipos generados en `prisma/generated/`
+- ✅ .env con DATABASE_URL
 
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+**Listo para:** Edita `prisma/schema.prisma` → crea migración → implementa módulos 🚀
