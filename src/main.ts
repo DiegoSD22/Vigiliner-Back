@@ -15,6 +15,16 @@ function normalizePathPrefix(prefix: string): string {
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Obtener ConfigService - DEBE estar aquí para CORS
+  const configService = app.get(ConfigService<AllConfigType>);
+
+  // Configurar CORS - Permisivo para desarrollo
+  app.enableCors({
+    origin: '*',
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  });
+
   // Filtro global de excepciones - DEBE estar primero
   app.useGlobalFilters(new AllExceptionsFilter());
 
@@ -41,8 +51,7 @@ async function bootstrap() {
     })
   );
 
-  // Obtener ConfigService
-  const configService = app.get(ConfigService<AllConfigType>);
+  // Prefijo global para estandarizar rutas de la API
   const port = configService.get('app.port', { infer: true }) || 3000;
   const configuredPrefix =
     configService.get('app.apiPrefix', { infer: true }) || 'api/v1';
