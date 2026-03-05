@@ -1,11 +1,16 @@
 import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@/prisma';
 import { RegisterDto, LoginDto } from './dto';
 import * as bcrypt from 'bcrypt';
+import { JwtPayload } from './interfaces/jwt-payload.interface';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   async register(registerDto: RegisterDto) {
     const { email, password, name, organizationName } = registerDto;
@@ -48,9 +53,19 @@ export class AuthService {
       },
     });
 
+    const accessToken = await this.generateAccessToken({
+      sub: user.id,
+      email: user.email,
+      organizationId: user.organizationId,
+    });
+
     return {
       message: 'Usuario registrado exitosamente',
-      data: user,
+      data: {
+        user,
+        accessToken,
+        tokenType: 'Bearer',
+      },
     };
   }
 
@@ -87,11 +102,53 @@ export class AuthService {
 
     const { password: _, ...userWithoutPassword } = user;
 
+    const accessToken = await this.generateAccessToken({
+      sub: userWithoutPassword.id,
+      email: userWithoutPassword.email,
+      organizationId: userWithoutPassword.organizationId,
+    });
+
     return {
       message: 'Login exitoso',
-      data: userWithoutPassword,
-      // token: generarJWT(user) será implementado después
+      data: {
+        user: userWithoutPassword,
+        accessToken,
+        tokenType: 'Bearer',
+      },
     };
+  }
+
+  async getProfile(userId: string) {
+    const user = await this.prismaService.user.findFirst({
+      where: {
+        id: userId,
+        deletedAt: null,
+      },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Usuario no encontrado o inactivo');
+    }
+
+    const { password: _, ...safeUser } = user;
+    return {
+      message: 'Perfil obtenido exitosamente',
+      data: safeUser,
+    };
+  }
+
+  private async generateAccessToken(payload: JwtPayload): Promise<string> {
+    return this.jwtService.signAsync(payload);
   }
 
   /**
