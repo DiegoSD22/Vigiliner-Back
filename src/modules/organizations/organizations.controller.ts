@@ -68,7 +68,7 @@ export class OrganizationsController {
   @Patch(':id')
   @ApiOperation({
     summary: 'Actualizar organización',
-    description: 'Actualiza nombre, slug o estado de una organización existente.',
+    description: 'Actualiza nombre o estado de una organización existente.',
   })
   @ApiParam({ name: 'id', description: 'ID de la organización en UUID' })
   @ApiBody({ type: UpdateOrganizationDto })

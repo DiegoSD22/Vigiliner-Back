@@ -4,7 +4,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -22,22 +21,6 @@ export class CreateOrganizationDto {
   @MinLength(2)
   @MaxLength(255)
   name: string;
-
-  @ApiPropertyOptional({
-    description:
-      'Slug único opcional. Si no se envía, se genera automáticamente desde el nombre.',
-    example: 'transportes-andina',
-    minLength: 2,
-    maxLength: 100,
-  })
-  @IsOptional()
-  @IsString()
-  @MinLength(2)
-  @MaxLength(100)
-  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
-    message: 'El slug debe estar en formato kebab-case (ej: transportes-andina)',
-  })
-  slug?: string;
 
   @ApiPropertyOptional({
     description: 'Estado inicial de la organización',

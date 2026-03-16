@@ -1,5 +1,4 @@
 import {
-  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -11,8 +10,7 @@ export class OrganizationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createOrganizationDto: CreateOrganizationDto) {
-    const initialSlug = createOrganizationDto.slug || createOrganizationDto.name;
-    const resolvedSlug = await this.resolveUniqueSlug(initialSlug);
+    const resolvedSlug = await this.resolveUniqueSlug(createOrganizationDto.name);
 
     const organization = await this.prisma.organization.create({
       data: {
@@ -80,12 +78,6 @@ export class OrganizationsService {
   async update(id: string, updateOrganizationDto: UpdateOrganizationDto) {
     await this.ensureOrganizationExists(id);
 
-    let slug: string | undefined;
-    if (updateOrganizationDto.slug || updateOrganizationDto.name) {
-      const inputSlug = updateOrganizationDto.slug || updateOrganizationDto.name;
-      slug = await this.resolveUniqueSlug(inputSlug as string, id);
-    }
-
     const organization = await this.prisma.organization.update({
       where: { id },
       data: {
@@ -93,7 +85,6 @@ export class OrganizationsService {
         ...(updateOrganizationDto.status
           ? { status: updateOrganizationDto.status }
           : {}),
-        ...(slug ? { slug } : {}),
       },
       include: {
         _count: {
@@ -145,7 +136,7 @@ export class OrganizationsService {
     }
   }
 
-  private async resolveUniqueSlug(input: string, currentId?: string): Promise<string> {
+  private async resolveUniqueSlug(input: string): Promise<string> {
     const normalizedBase = this.normalizeSlug(input);
     let candidate = normalizedBase;
     let suffix = 1;
@@ -156,17 +147,13 @@ export class OrganizationsService {
         select: { id: true },
       });
 
-      if (!existing || existing.id === currentId) {
+      if (!existing) {
         return candidate;
       }
 
       const suffixText = `-${suffix}`;
       candidate = `${normalizedBase.slice(0, 100 - suffixText.length)}${suffixText}`;
       suffix += 1;
-
-      if (suffix > 9999) {
-        throw new ConflictException('No fue posible generar un slug único para la organización');
-      }
     }
   }
 
