@@ -8,9 +8,13 @@ export async function seedOrganizationsAndUsers(
   prisma: PrismaClient,
   organizations: SeedOrganization[],
 ): Promise<void> {
-  // Buscar el rol super-admin (global) para asignar al super-admin user
+  // Buscar los roles para asignar a usuarios
   const superAdminRole = await prisma.role.findFirst({
     where: { slug: 'super-admin' },
+  });
+
+  const orgAdminRole = await prisma.role.findFirst({
+    where: { slug: 'org-admin' },
   });
 
   for (const [orgIndex, org] of organizations.entries()) {
@@ -75,6 +79,34 @@ export async function seedOrganizationsAndUsers(
 
         console.log(
           `  ✓ Rol "super-admin" asignado a usuario "${user.username}" (acceso global)`,
+        );
+      }
+
+      // Asignar rol org-admin al usuario admin (segundo usuario de primera org)
+      if (
+        orgIndex === 0 &&
+        userIndex === 1 &&
+        user.username === 'admin' &&
+        orgAdminRole
+      ) {
+        await prisma.userRole.upsert({
+          where: {
+            userId_roleId_organizationId: {
+              userId: savedUser.id,
+              roleId: orgAdminRole.id,
+              organizationId: savedOrg.id,
+            },
+          },
+          update: {},
+          create: {
+            userId: savedUser.id,
+            roleId: orgAdminRole.id,
+            organizationId: savedOrg.id,
+          },
+        });
+
+        console.log(
+          `  ✓ Rol "org-admin" asignado a usuario "${user.username}" en organización "${savedOrg.name}"`,
         );
       }
     }

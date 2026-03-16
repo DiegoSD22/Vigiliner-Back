@@ -63,12 +63,20 @@ export function generateSeedOrganizations(): SeedOrganization[] {
     }
 
     if (orgIndex === 1) {
-      users.unshift({
-        name: 'Super Admin',
-        email: 'super-admin@seed.vigiliner.local',
-        username: 'super-admin',
-        password: '12345678',
-      });
+      users.unshift(
+        {
+          name: 'Super Admin',
+          email: 'super-admin@seed.vigiliner.local',
+          username: 'super-admin',
+          password: '12345678',
+        },
+        {
+          name: 'Admin',
+          email: 'admin@seed.vigiliner.local',
+          username: 'admin',
+          password: '12345678',
+        },
+      );
     }
 
     organizations.push({
