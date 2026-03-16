@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma';
 import { AuthModule } from './modules/auth';
 import { RbacModule } from './modules/rbac';
 import { OrganizationsModule } from './modules/organizations';
+import { UsersModule } from './modules/users';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { OrganizationsModule } from './modules/organizations';
     AuthModule,
     RbacModule,
     OrganizationsModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
