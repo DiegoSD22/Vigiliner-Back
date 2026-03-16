@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -10,10 +11,66 @@ import { CreateUserDto, UpdateUserDto } from './dto';
 
 const BCRYPT_ROUNDS = 10;
 const DEFAULT_ROLE_SLUG = 'org-admin';
+const SUPER_ADMIN_ROLE = 'super-admin';
+
+interface ActorContext {
+  organizationId: string;
+  roles?: string[];
+}
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async createInOrganization(
+    createUserDto: CreateUserDto,
+    targetOrganizationId: string,
+    actor: ActorContext,
+  ) {
+    await this.assertCanAccessOrganization(actor, targetOrganizationId);
+    await this.ensureOrganizationExists(targetOrganizationId);
+    return this.create(createUserDto, targetOrganizationId);
+  }
+
+  async findAllByOrganization(
+    targetOrganizationId: string,
+    actor: ActorContext,
+  ) {
+    await this.assertCanAccessOrganization(actor, targetOrganizationId);
+    await this.ensureOrganizationExists(targetOrganizationId);
+    return this.findAll(targetOrganizationId);
+  }
+
+  async findOneByOrganization(
+    userId: string,
+    targetOrganizationId: string,
+    actor: ActorContext,
+  ) {
+    await this.assertCanAccessOrganization(actor, targetOrganizationId);
+    await this.ensureOrganizationExists(targetOrganizationId);
+    return this.findOne(userId, targetOrganizationId);
+  }
+
+  async updateInOrganization(
+    userId: string,
+    updateUserDto: UpdateUserDto,
+    targetOrganizationId: string,
+    actor: ActorContext,
+  ) {
+    await this.assertCanAccessOrganization(actor, targetOrganizationId);
+    await this.ensureOrganizationExists(targetOrganizationId);
+    return this.update(userId, updateUserDto, targetOrganizationId);
+  }
+
+  async removeInOrganization(
+    userId: string,
+    targetOrganizationId: string,
+    actor: ActorContext,
+  ) {
+    await this.assertCanAccessOrganization(actor, targetOrganizationId);
+    await this.ensureOrganizationExists(targetOrganizationId);
+    return this.remove(userId, targetOrganizationId);
+  }
 
   async create(createUserDto: CreateUserDto, organizationId: string) {
     await this.ensureUniqueEmail(createUserDto.email);
@@ -262,6 +319,42 @@ export class UsersService {
 
     if (!user) {
       throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    }
+  }
+
+  private async ensureOrganizationExists(organizationId: string) {
+    const organization = await this.prisma.organization.findFirst({
+      where: {
+        id: organizationId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!organization) {
+      throw new NotFoundException(
+        `Organización con ID ${organizationId} no encontrada`,
+      );
+    }
+  }
+
+  private async assertCanAccessOrganization(
+    actor: ActorContext,
+    targetOrganizationId: string,
+  ) {
+    const actorRoles = actor.roles || [];
+    const isSuperAdmin = actorRoles.includes(SUPER_ADMIN_ROLE);
+
+    if (isSuperAdmin) {
+      return;
+    }
+
+    if (actor.organizationId !== targetOrganizationId) {
+      throw new ForbiddenException(
+        'No tienes permisos para gestionar usuarios de esta organización',
+      );
     }
   }
 
